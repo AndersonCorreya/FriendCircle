@@ -10,23 +10,24 @@ class ChatService extends ChangeNotifier {
 
   Future<void> sendMessage(String receiverId, String message) async {
     final String currentUserId = _firebaseAuth.currentUser!.uid;
-    final String currentUserEmail = _firebaseAuth.currentUser!.email.toString();
+    final String currentUserEmail = _firebaseAuth.currentUser!.email!;
     final Timestamp timestamp = Timestamp.now();
 
     Message newMessage = Message(
-        senderId: currentUserId,
-        senderEmail: currentUserEmail,
-        receiverId: receiverId,
-        message: message,
-        timestamp: timestamp);
+      senderId: currentUserId,
+      senderEmail: currentUserEmail,
+      receiverId: receiverId,
+      message: message,
+      timestamp: timestamp,
+    );
+
     List<String> ids = [currentUserId, receiverId];
     ids.sort();
-    String chatroomId = ids.join("_");
+    String chatRoomId = ids.join("_");
 
-    // Add your Firestore code here to send the message to the chatroom
     await _firestore
         .collection('chat_rooms')
-        .doc(chatroomId)
+        .doc(chatRoomId)
         .collection('messages')
         .add(newMessage.toMap());
   }
@@ -42,5 +43,24 @@ class ChatService extends ChangeNotifier {
         .collection('messages')
         .orderBy('timestamp', descending: false)
         .snapshots();
+  }
+
+  Future<void> clearChat(String otherUserId) async {
+    final String currentUserId = _firebaseAuth.currentUser!.uid;
+    List<String> ids = [currentUserId, otherUserId];
+    ids.sort();
+    String chatRoomId = ids.join("_");
+
+    // Get all messages in the chat room
+    QuerySnapshot messagesSnapshot = await _firestore
+        .collection('chat_rooms')
+        .doc(chatRoomId)
+        .collection('messages')
+        .get();
+
+    // Delete each message
+    for (var doc in messagesSnapshot.docs) {
+      await doc.reference.delete();
+    }
   }
 }
